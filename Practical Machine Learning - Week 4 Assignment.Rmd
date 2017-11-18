@@ -91,6 +91,22 @@ Adding the "classe" variable to the specificTraining dataset:
 specificTraining <- cbind(specificTraining, classe = pml_training$classe)
 ```
 
+### Data partition to evaluate out-of-sample errors
+
+As the model cannot be tested with pml_testing without knowing how it performs, it is necessary to split the training data in 2 groups:
+
+```{r}
+library(caret)
+set.seed(28322)
+
+# Generating a possible partition (80% / 20%)
+inTrain <- createDataPartition(y = specificTraining$classe, p = 0.80, list = FALSE)
+
+# Assigning most of the data to the subtraining group and the rest to the subtesting group 
+subtraining  <- specificTraining[inTrain, ]
+subtesting  <- specificTraining[-inTrain, ]
+```
+
 ### Model development
 
 Building a random forest model:
@@ -101,7 +117,7 @@ library(randomForest)
 set.seed(28322)
 
 # Building a random forest model
-modFit <- randomForest(classe ~ ., data = specificTraining)
+modFit <- randomForest(classe ~ ., data = subtraining)
 modFit
 ```
 
@@ -117,7 +133,30 @@ Dotchart of variable importance as measured by the random forest model just crea
 varImpPlot(modFit)
 ```
 
-### Application of model to testing dataset
+### Application of model to subtesting dataset
+
+Predicting the classe values for subtesting:
+
+```{r}
+# A variable classe is added to the testing dataset with the predictions
+prediction <- predict(modFit, newdata = subtesting)
+
+# Creating the confusion matrix for the results achieved
+confusion <- confusionMatrix(prediction, subtesting$classe)
+confusion
+```
+
+Accuracy of 94.83%, so that seems interesting.
+
+From this result, it is possible to have a reference of the performance from the calculated model:
+
+```{r}
+out_of_sample_error <- 1 - confusion$overall[1]
+names(out_of_sample_error) <- "Error"
+out_of_sample_error
+```
+
+### Application of model to global testing dataset
 
 Predicting the classe values for pml_testing:
 
