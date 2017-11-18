@@ -1,0 +1,130 @@
+---
+title: "Practical Machine Learning - Week 4"
+author: "PGM"
+date: "18/11/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+rm(list=ls())
+setwd('/Users/PGM-MAC/Desktop/Johns Hopkins')
+```
+
+### Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+Data
+
+The training data for this project are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment.
+
+### Cleaning data
+
+```{r}
+## Download the CSV files with the data
+fileURL <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+download.file(fileURL, destfile = "./pml-training.csv", method = "curl")
+dateDownloaded <- date()
+
+fileURL <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(fileURL, destfile = "./pml-testing.csv", method = "curl")
+dateDownloaded <- date()
+
+## Loading the data from the CSV files downloaded
+pml_training <- read.csv("./pml-training.csv", sep = ",", header = TRUE)
+head(pml_training)
+
+pml_testing <- read.csv("./pml-testing.csv", sep = ",", header = TRUE)
+head(pml_testing)
+```
+
+Search for the strings regarding the accelerometers on 4 locations (belt, forearm, arm, dumbbell)
+
+```{r}
+choices <- c("accel_belt", "accel_forearm", "accel_arm", "accel_dumbbell")
+columns <- grepl(paste(choices, collapse = "|"), colnames(pml_training))
+```
+
+Manually making that the first and last elements true to select those extra columns:
+
+```{r}
+# Extracting the data in those columns only
+specificTraining <- pml_training[, columns]
+
+## Removing choices and columns
+rm(choices, columns)
+```
+
+Looking briefly at the resulting data:
+
+```{r}
+summary(specificTraining)
+```
+
+The amount of NA's is so high on the variables 'var_accel' & 'var_total_accel' from the 4 locations that it those columns will be removed from the pool of independent variables.
+
+```{r}
+choices <- c("var_accel", "var_total_accel")
+columns <- grepl(paste(choices, collapse = "|"), colnames(specificTraining))
+
+# Extracting the data in those columns only
+specificTraining <- specificTraining[, !columns]
+
+## Removing choices and columns
+rm(choices, columns)
+```
+
+Adding the "classe" variable to the specificTraining dataset:
+
+```{r}
+# Adding classe
+specificTraining <- cbind(specificTraining, classe = pml_training$classe)
+```
+
+### Model development
+
+Building a random forest model:
+
+```{r}
+library(randomForest)
+
+set.seed(28322)
+
+# Building a random forest model
+modFit <- randomForest(classe ~ ., data = specificTraining)
+modFit
+```
+
+Showing the results visually for the iterations made during the model creation:
+
+```{r}
+plot(modFit)
+```
+
+Dotchart of variable importance as measured by the random forest model just created:
+
+```{r}
+varImpPlot(modFit)
+```
+
+### Application of model to testing dataset
+
+Predicting the classe values for pml_testing:
+
+```{r}
+# A variable classe is added to the testing dataset with the predictions
+pml_testing$classe <- predict(modFit, newdata = pml_testing)
+
+# The predictions to be provider to the automatic checker
+pml_testing$classe
+```
